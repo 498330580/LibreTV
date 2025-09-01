@@ -2,6 +2,7 @@ name: Upstream Sync
 
 permissions:
   contents: write
+  workflows: write  # 新增此权限以允许修改workflow文件
 
 on:
   schedule:
@@ -15,11 +16,13 @@ jobs:
     if: ${{ github.event.repository.fork }}
 
     steps:
-      # Step 1: run a standard checkout action
+      # Step 1: 检出目标仓库
       - name: Checkout target repo
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # 确保获取所有历史记录
 
-      # Step 2: run the sync action
+      # Step 2: 同步上游更改
       - name: Sync upstream changes
         id: sync
         uses: aormsby/Fork-Sync-With-Upstream-action@v3.4.1
@@ -28,9 +31,12 @@ jobs:
           upstream_sync_branch: main
           target_sync_branch: main
           target_repo_token: ${{ secrets.GITHUB_TOKEN }}
+          # 新增：如果遇到冲突，以 upstream 为准
+          conflict_resolution: "take-upstream"
 
+      # Step 3: 同步检查（修复了语法错误）
       - name: Sync check
         if: failure()
         run: |
-          echo "[Error] Due to a change in the workflow file of the upstream repository, GitHub has automatically suspended the scheduled automatic update. You need to manually sync your fork."
+          echo "Error: Due to a change in the workflow file of the upstream repository, GitHub has automatically suspended the scheduled automatic update. You need to manually sync your fork."
           exit 1
