@@ -1,11 +1,11 @@
 name: Upstream Sync
 
 permissions:
-  contents: write  # 仅保留必要权限
+  contents: write
 
 on:
   schedule:
-    - cron: "0 4 * * *"  # 在UTC+8的12点运行
+    - cron: "0 4 * * *" # 在UTC+8的12点运行
   workflow_dispatch:
 
 jobs:
@@ -18,24 +18,35 @@ jobs:
       - name: Checkout target repo
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # 获取所有历史记录
+          fetch-depth: 0  # 获取完整历史记录
 
-      - name: Sync upstream changes
-        id: sync
-        # 锁定到具体commit，避免版本更新带来的风险
-        uses: aormsby/Fork-Sync-With-Upstream-action@d51998155a5c07859a546d8b821fd3e95e8c3d
-        with:
-          upstream_sync_repo: LibreSpark/LibreTV
-          upstream_sync_branch: main
-          target_sync_branch: main
-          target_repo_token: ${{ secrets.GITHUB_TOKEN }}
-          # 根据实际需求决定是否保留冲突自动处理
-          # conflict_resolution: "take-upstream"
+      - name: Configure Git
+        run: |
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "actions@github.com"
 
-      - name: Sync check
+      - name: Add upstream repository
+        run: |
+          git remote add upstream https://github.com/LibreSpark/LibreTV.git || true
+          git fetch upstream
+
+      - name: Merge upstream changes
+        run: |
+          # 尝试正常合并，如果失败则允许不相关历史并强制以 upstream 为准
+          if ! git merge upstream/main; then
+            echo "Normal merge failed, attempting to merge with unrelated histories"
+            git merge upstream/main --allow-unrelated-histories
+          fi
+
+      - name: Push changes to fork
+        run: |
+          git push origin main
+
+      - name: Handle sync failure
         if: failure()
         run: |
           echo "Error: Failed to sync with upstream repository."
-          echo "Possible reasons: code conflicts, network issues, or insufficient permissions."
-          echo "Please check the logs or sync manually."
+          echo "Possible reasons: code conflicts, network issues, or permissions."
+          echo "Please check logs or sync manually."
           exit 1
+    
