@@ -1,12 +1,11 @@
 name: Upstream Sync
 
 permissions:
-  contents: write
-  workflows: write  # 新增此权限以允许修改workflow文件
+  contents: write  # 仅保留必要权限
 
 on:
   schedule:
-    - cron: "0 4 * * *" # At 12PM UTC+8
+    - cron: "0 4 * * *"  # 在UTC+8的12点运行
   workflow_dispatch:
 
 jobs:
@@ -16,27 +15,27 @@ jobs:
     if: ${{ github.event.repository.fork }}
 
     steps:
-      # Step 1: 检出目标仓库
       - name: Checkout target repo
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # 确保获取所有历史记录
+          fetch-depth: 0  # 获取所有历史记录
 
-      # Step 2: 同步上游更改
       - name: Sync upstream changes
         id: sync
-        uses: aormsby/Fork-Sync-With-Upstream-action@v3.4.1
+        # 锁定到具体commit，避免版本更新带来的风险
+        uses: aormsby/Fork-Sync-With-Upstream-action@d51998155a5c07859a546d8b821fd3e95e8c3d
         with:
           upstream_sync_repo: LibreSpark/LibreTV
           upstream_sync_branch: main
           target_sync_branch: main
           target_repo_token: ${{ secrets.GITHUB_TOKEN }}
-          # 新增：如果遇到冲突，以 upstream 为准
-          conflict_resolution: "take-upstream"
+          # 根据实际需求决定是否保留冲突自动处理
+          # conflict_resolution: "take-upstream"
 
-      # Step 3: 同步检查（修复了语法错误）
       - name: Sync check
         if: failure()
         run: |
-          echo "Error: Due to a change in the workflow file of the upstream repository, GitHub has automatically suspended the scheduled automatic update. You need to manually sync your fork."
+          echo "Error: Failed to sync with upstream repository."
+          echo "Possible reasons: code conflicts, network issues, or insufficient permissions."
+          echo "Please check the logs or sync manually."
           exit 1
